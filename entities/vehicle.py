@@ -1,0 +1,100 @@
+from abc import ABC, abstractmethod
+import math
+
+
+class Vehicle(ABC):
+    MAX_SPEED = 10.0
+    ACCELERATION = 0.5
+    FRICTION = 0.95
+    ROTATION_SPEED = 3.0
+    
+    def __init__(self, x, y, width=40, height=20):
+        self.__x = float(x)
+        self.__y = float(y)
+        self.__speed = 0.0
+        self.__angle = 0.0
+        self._width = width
+        self._height = height
+        self._color = (255, 255, 255)
+    
+    @property
+    def x(self):
+        return self.__x
+    
+    @property
+    def y(self):
+        return self.__y
+    
+    @property
+    def speed(self):
+        return self.__speed
+    
+    @property
+    def angle(self):
+        return self.__angle
+    
+    @property
+    def width(self):
+        return self._width
+    
+    @property
+    def height(self):
+        return self._height
+    
+    @property
+    def color(self):
+        return self._color
+    
+    def set_position(self, x, y):
+        self.__x = float(x)
+        self.__y = float(y)
+    
+    def accelerate(self, amount):
+        self.__speed += amount
+        if self.__speed > self.MAX_SPEED:
+            self.__speed = self.MAX_SPEED
+        elif self.__speed < -self.MAX_SPEED * 0.5:
+            self.__speed = -self.MAX_SPEED * 0.5
+    
+    def rotate(self, amount):
+        self.__angle += amount
+    
+    def apply_friction(self):
+        self.__speed *= self.FRICTION
+        if abs(self.__speed) < 0.1:
+            self.__speed = 0.0
+    
+    def update_position(self, dt):
+        if abs(self.__speed) > 0.01:
+            rad = math.radians(self.__angle)
+            self.__x += math.cos(rad) * self.__speed
+            self.__y += math.sin(rad) * self.__speed
+    
+    def get_corners(self):
+        rad = math.radians(self.__angle)
+        cos_a = math.cos(rad)
+        sin_a = math.sin(rad)
+        
+        hw = self._width / 2
+        hh = self._height / 2
+        
+        corners = [
+            (-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)
+        ]
+        
+        rotated = []
+        for cx, cy in corners:
+            rx = cx * cos_a - cy * sin_a
+            ry = cx * sin_a + cy * cos_a
+            rotated.append((self.__x + rx, self.__y + ry))
+        
+        return rotated
+    
+    @abstractmethod
+    def handle_input(self):
+        pass
+    
+    def update(self, dt):
+        self.handle_input()
+        self.apply_friction()
+        self.update_position(dt)
