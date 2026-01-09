@@ -49,6 +49,9 @@ class Vehicle(ABC):
         self.__x = float(x)
         self.__y = float(y)
     
+    def set_angle(self, angle):
+        self.__angle = float(angle)
+
     def accelerate(self, amount):
         self.__speed += amount
         if self.__speed > self.MAX_SPEED:
@@ -71,6 +74,7 @@ class Vehicle(ABC):
             self.__y += math.sin(rad) * self.__speed
     
     def get_corners(self):
+        # Standard rectangle shape
         rad = math.radians(self.__angle)
         cos_a = math.cos(rad)
         sin_a = math.sin(rad)
@@ -78,6 +82,7 @@ class Vehicle(ABC):
         hw = self._width / 2
         hh = self._height / 2
         
+        # Rectangle corners
         corners = [
             (-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)
         ]

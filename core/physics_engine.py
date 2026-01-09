@@ -10,18 +10,18 @@ class PhysicsEngine:
         corners = vehicle.get_corners()
         
         if track.check_collision(corners):
-            # stop and push back
             rad = math.radians(vehicle.angle)
-            push_back = 2.0
-            
-            new_x = vehicle.x - math.cos(rad) * push_back
-            new_y = vehicle.y - math.sin(rad) * push_back
-            
+
+            # Strong pushback to prevent wall clipping
+            push_distance = max(8.0, abs(vehicle.speed) * 1.5)
+
+            new_x = vehicle.x - math.cos(rad) * push_distance
+            new_y = vehicle.y - math.sin(rad) * push_distance
+
             vehicle.set_position(new_x, new_y)
             
-            # kill most of the speed
-            current_speed = vehicle.speed
-            vehicle.accelerate(-current_speed * self._collision_response)
-            
+            # Strongly reduce speed on collision
+            vehicle.accelerate(-vehicle.speed * 0.9)
+
             return True
         return False
