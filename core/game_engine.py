@@ -94,7 +94,6 @@ class GameEngine:
                     print(f"Checkpoints visibility: {'ON' if self._show_checkpoints else 'OFF'}")
 
     def _update(self, dt):
-        # Update lap timer
         self._lap_timer.update()
 
         for vehicle in self._vehicles:
@@ -103,13 +102,11 @@ class GameEngine:
             
             vehicle.update(dt)
             
-            # Check checkpoint crossing
             if self._track.check_checkpoint_crossing(
                 old_x, old_y, vehicle.x, vehicle.y, self._next_checkpoint
             ):
                 self._next_checkpoint += 1
 
-                # Complete lap if all checkpoints passed
                 if self._next_checkpoint >= self._track.total_checkpoints:
                     lap_info = self._lap_timer.complete_lap()
                     self._next_checkpoint = 0
@@ -118,13 +115,11 @@ class GameEngine:
                     if lap_info['is_best']:
                         print("  *** NEW BEST LAP! ***")
 
-            # check collision and revert if needed
             if self._physics.handle_collision(vehicle, self._track):
                 self._collision_count += 1
-                # if still colliding after pushback, revert completely
                 if self._track.check_collision(vehicle.get_corners()):
                     vehicle.set_position(old_x, old_y)
-    
+
     def _render(self):
         self._renderer.clear(self._track.background_color)
         self._renderer.draw_track(self._track, self._show_checkpoints)

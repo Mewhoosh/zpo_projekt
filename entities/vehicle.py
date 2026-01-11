@@ -8,7 +8,7 @@ class Vehicle(ABC):
     FRICTION = 0.95
     ROTATION_SPEED = 3.0
     
-    def __init__(self, x, y, width=40, height=20):
+    def __init__(self, x, y, width=30, height=15):
         self.__x = float(x)
         self.__y = float(y)
         self.__speed = 0.0
