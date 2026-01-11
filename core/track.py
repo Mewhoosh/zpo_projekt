@@ -98,19 +98,69 @@ class Track:
 
         checkpoint = self._checkpoints[next_checkpoint_id]
 
+        # Skip if already passed
+        if checkpoint.get('passed', False):
+            return False
+
+        cp_x1, cp_y1 = checkpoint['x1'], checkpoint['y1']
+        cp_x2, cp_y2 = checkpoint['x2'], checkpoint['y2']
+
+        # Simple line-line intersection using determinant method
+        # Line 1: from (prev_x, prev_y) to (curr_x, curr_y)
+        # Line 2: from (cp_x1, cp_y1) to (cp_x2, cp_y2)
+
+        def line_intersection(p0_x, p0_y, p1_x, p1_y, p2_x, p2_y, p3_x, p3_y):
+            """
+            Check if line segment p0-p1 intersects with line segment p2-p3
+            Returns True if they intersect
+            """
+            s1_x = p1_x - p0_x
+            s1_y = p1_y - p0_y
+            s2_x = p3_x - p2_x
+            s2_y = p3_y - p2_y
+
+            denom = (-s2_x * s1_y + s1_x * s2_y)
+            if abs(denom) < 1e-10:  # Lines are parallel
+                return False
+
+            s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / denom
+            t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / denom
+
+            if 0 <= s <= 1 and 0 <= t <= 1:
+                return True
+            return False
+
+        # Check if movement line crosses checkpoint line
+        intersects = line_intersection(prev_x, prev_y, curr_x, curr_y, cp_x1, cp_y1, cp_x2, cp_y2)
+
+        if intersects:
+            checkpoint['passed'] = True
+            return True
+
+        return False
+
+    def check_finish_line_crossing(self, prev_x, prev_y, curr_x, curr_y):
+        """Check if vehicle crossed the finish line (any direction)."""
+        if not self._start_finish_line:
+            return False
+
         # Line intersection algorithm
         def ccw(ax, ay, bx, by, cx, cy):
             return (cy - ay) * (bx - ax) > (by - ay) * (cx - ax)
 
-        x1, y1 = checkpoint['x1'], checkpoint['y1']
-        x2, y2 = checkpoint['x2'], checkpoint['y2']
+        def lines_intersect(x1, y1, x2, y2, x3, y3, x4, y4):
+            """Check if line (x1,y1)-(x2,y2) intersects with line (x3,y3)-(x4,y4)"""
+            a = ccw(x1, y1, x3, y3, x4, y4)
+            b = ccw(x2, y2, x3, y3, x4, y4)
+            c = ccw(x1, y1, x2, y2, x3, y3)
+            d = ccw(x1, y1, x2, y2, x4, y4)
+            return (a != b) and (c != d)
 
-        a = ccw(x1, y1, curr_x, curr_y, prev_x, prev_y)
-        b = ccw(x2, y2, curr_x, curr_y, prev_x, prev_y)
-        c = ccw(x1, y1, x2, y2, curr_x, curr_y)
-        d = ccw(x1, y1, x2, y2, prev_x, prev_y)
+        fl_x1, fl_y1 = self._start_finish_line['x1'], self._start_finish_line['y1']
+        fl_x2, fl_y2 = self._start_finish_line['x2'], self._start_finish_line['y2']
 
-        return (a != b) and (c != d)
+        # Check if movement line crosses finish line (any direction)
+        return lines_intersect(prev_x, prev_y, curr_x, curr_y, fl_x1, fl_y1, fl_x2, fl_y2)
 
     def reset_checkpoints(self):
         for checkpoint in self._checkpoints:

@@ -5,12 +5,32 @@ import os
 
 
 class TrackLoader:
+    """
+    Loads racing tracks from PNG images.
+
+    Track format:
+    - Black (0,0,0): Walls
+    - White (255,255,255): Road
+    - Yellow (255,255,0): Start/Finish line
+    - Green (0,255,0): Checkpoint 0 (first)
+    - Blue (0,0,255): Checkpoint 1 (second)
+    - Red (255,0,0): Checkpoint 2 (third)
+    - Cyan (0,255,255): Checkpoint 3 (fourth) - optional
+    - Magenta (255,0,255): Checkpoint 4 (fifth) - optional
+    """
 
     def __init__(self):
         self.wall_color = (0, 0, 0)
         self.road_color = (255, 255, 255)
-        self.start_color = (255, 0, 0)
-        self.checkpoint_color = (0, 255, 0)
+        # Checkpoint colors in order
+        self.checkpoint_colors = [
+            (0, 255, 0),    # Green - Checkpoint 0
+            (0, 0, 255),    # Blue - Checkpoint 1
+            (255, 0, 0),    # Red - Checkpoint 2
+            (0, 255, 255),  # Cyan - Checkpoint 3
+            (255, 0, 255),  # Magenta - Checkpoint 4
+        ]
+        self.finish_line_color = (255, 255, 0)  # Yellow
 
     def load_from_png(self, filepath):
         """
@@ -84,7 +104,7 @@ class TrackLoader:
                         walls.append(wall_rect)
 
         # Extract checkpoints from green pixels
-        checkpoints = self._extract_checkpoints(pixels, width, height)
+        checkpoints = self._extract_checkpoints(pixels, width, height, start_position)
 
         return {
             'walls': walls,
@@ -143,62 +163,171 @@ class TrackLoader:
             'height': rect_height
         }
 
-    def _extract_checkpoints(self, pixels, width, height):
-        """Extract checkpoint lines from green pixels."""
+    def _extract_checkpoints(self, pixels, width, height, start_position):
+        """Extract checkpoint lines from colored pixels (green, blue, red, cyan, magenta)."""
+        # Dictionary to store checkpoints by color
+        checkpoints_by_color = {}
+
+        # Detect checkpoints for each color
+        for checkpoint_id, color in enumerate(self.checkpoint_colors):
+            visited = np.zeros((height, width), dtype=bool)
+            checkpoint_lines = []
+
+            target_r, target_g, target_b = color
+
+            for y in range(height):
+                for x in range(width):
+                    if visited[y, x]:
+                        continue
+
+                    r, g, b = pixels[y, x]
+
+                    # Check if pixel matches checkpoint color
+                    # Tolerance 80 because Paint doesn't always save exact RGB values
+                    tolerance = 80
+                    if (abs(r - target_r) < tolerance and
+                        abs(g - target_g) < tolerance and
+                        abs(b - target_b) < tolerance):
+
+                        # Skip if it's the finish line (yellow)
+                        if abs(r - 255) < 30 and abs(g - 255) < 30 and b < 50:
+                            continue
+
+                        line = self._trace_checkpoint_line(pixels, visited, x, y, width, height, color)
+                        if line and len(line) > 3:
+                            x1, y1 = line[0]
+                            x2, y2 = line[-1]
+                            checkpoint_lines.append({
+                                'x1': x1, 'y1': y1,
+                                'x2': x2, 'y2': y2,
+                                'id': checkpoint_id,
+                                'color': color,
+                                'passed': False
+                            })
+
+            # Group nearby checkpoints for this color
+            if checkpoint_lines:
+                grouped = self._group_checkpoints(checkpoint_lines)
+                if grouped:
+                    # Take the first grouped checkpoint for this color
+                    checkpoints_by_color[checkpoint_id] = grouped[0]
+                    checkpoints_by_color[checkpoint_id]['id'] = checkpoint_id
+
+        # Convert to sorted list by ID
         checkpoints = []
-        visited = np.zeros((height, width), dtype=bool)
-        checkpoint_id = 0
-
-        for y in range(height):
-            for x in range(width):
-                if visited[y, x]:
-                    continue
-
-                r, g, b = pixels[y, x]
-
-                if g > 200 and r < 100 and b < 100:
-                    # Found green pixel, trace the line
-                    line = self._trace_checkpoint_line(pixels, visited, x, y, width, height)
-                    if line and len(line) > 3:
-                        x1, y1 = line[0]
-                        x2, y2 = line[-1]
-                        checkpoints.append({
-                            'x1': x1, 'y1': y1,
-                            'x2': x2, 'y2': y2,
-                            'id': checkpoint_id,
-                            'passed': False
-                        })
-                        checkpoint_id += 1
+        for i in range(len(self.checkpoint_colors)):
+            if i in checkpoints_by_color:
+                checkpoints.append(checkpoints_by_color[i])
 
         return checkpoints
 
-    def _trace_checkpoint_line(self, pixels, visited, start_x, start_y, width, height):
-        """Trace a line of green pixels."""
-        line = [(start_x, start_y)]
-        visited[start_y, start_x] = True
+    def _group_checkpoints(self, checkpoints):
+        """Group nearby checkpoints that are part of the same line."""
+        if not checkpoints:
+            return []
 
-        directions = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
-        current_x, current_y = start_x, start_y
+        # Distance threshold for grouping (pixels)
+        distance_threshold = 50
 
-        for _ in range(max(width, height)):
-            found_next = False
+        grouped = []
+        used = [False] * len(checkpoints)
 
-            for dx, dy in directions:
-                next_x = current_x + dx
-                next_y = current_y + dy
+        for i, cp1 in enumerate(checkpoints):
+            if used[i]:
+                continue
 
-                if 0 <= next_x < width and 0 <= next_y < height:
-                    if not visited[next_y, next_x]:
-                        r, g, b = pixels[next_y, next_x]
-                        if g > 200 and r < 100 and b < 100:
-                            line.append((next_x, next_y))
-                            visited[next_y, next_x] = True
-                            current_x, current_y = next_x, next_y
-                            found_next = True
-                            break
+            # Start a new group
+            group = [cp1]
+            used[i] = True
 
-            if not found_next:
-                break
+            # Find all nearby checkpoints
+            for j, cp2 in enumerate(checkpoints):
+                if used[j]:
+                    continue
+
+                # Check if cp2 is close to any checkpoint in current group
+                for cp in group:
+                    # Calculate average distance between endpoints
+                    dist1 = ((cp['x1'] - cp2['x1'])**2 + (cp['y1'] - cp2['y1'])**2)**0.5
+                    dist2 = ((cp['x2'] - cp2['x2'])**2 + (cp['y2'] - cp2['y2'])**2)**0.5
+                    avg_dist = (dist1 + dist2) / 2
+
+                    if avg_dist < distance_threshold:
+                        group.append(cp2)
+                        used[j] = True
+                        break
+
+            # Merge group into single checkpoint
+            if group:
+                # Find extreme points
+                all_x = [cp['x1'] for cp in group] + [cp['x2'] for cp in group]
+                all_y = [cp['y1'] for cp in group] + [cp['y2'] for cp in group]
+
+                # Calculate center line
+                min_x, max_x = min(all_x), max(all_x)
+                min_y, max_y = min(all_y), max(all_y)
+
+                # Determine if line is more horizontal or vertical
+                width_span = max_x - min_x
+                height_span = max_y - min_y
+
+                if height_span > width_span:
+                    # Vertical line - use average x
+                    avg_x = sum(all_x) / len(all_x)
+                    merged = {
+                        'x1': int(avg_x), 'y1': min_y,
+                        'x2': int(avg_x), 'y2': max_y,
+                        'id': 0,
+                        'passed': False
+                    }
+                else:
+                    # Horizontal line - use average y
+                    avg_y = sum(all_y) / len(all_y)
+                    merged = {
+                        'x1': min_x, 'y1': int(avg_y),
+                        'x2': max_x, 'y2': int(avg_y),
+                        'id': 0,
+                        'passed': False
+                    }
+
+                grouped.append(merged)
+
+        return grouped
+
+    def _trace_checkpoint_line(self, pixels, visited, start_x, start_y, width, height, target_color):
+        """Trace a line of colored pixels in both directions from start point."""
+        target_r, target_g, target_b = target_color
+
+        # Collect all connected pixels of the same color
+        to_visit = [(start_x, start_y)]
+        line = []
+        local_visited = set()
+
+        # Use flood fill to find all connected pixels
+        while to_visit:
+            x, y = to_visit.pop()
+
+            if (x, y) in local_visited:
+                continue
+            if x < 0 or x >= width or y < 0 or y >= height:
+                continue
+            if visited[y, x]:
+                continue
+
+            r, g, b = pixels[y, x]
+            tolerance = 80
+            if not (abs(r - target_r) < tolerance and
+                    abs(g - target_g) < tolerance and
+                    abs(b - target_b) < tolerance):
+                continue
+
+            local_visited.add((x, y))
+            visited[y, x] = True
+            line.append((x, y))
+
+            # Add neighbors (prioritize straight directions)
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)]:
+                to_visit.append((x + dx, y + dy))
 
         return line
 

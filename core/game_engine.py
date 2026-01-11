@@ -1,5 +1,4 @@
 import pygame
-import math
 from entities.player_car import PlayerCar
 from core.track import Track
 from core.track_loader import TrackLoader
@@ -78,7 +77,6 @@ class GameEngine:
         self._track.reset_checkpoints()
         self._lap_timer.reset()
         self._lap_timer.start_race()
-        print("Race reset!")
 
     def _handle_events(self):
         for event in pygame.event.get():
@@ -91,7 +89,6 @@ class GameEngine:
                     self._reset_race()
                 elif event.key == pygame.K_c:
                     self._show_checkpoints = not self._show_checkpoints
-                    print(f"Checkpoints visibility: {'ON' if self._show_checkpoints else 'OFF'}")
 
     def _update(self, dt):
         self._lap_timer.update()
@@ -101,24 +98,29 @@ class GameEngine:
             old_y = vehicle.y
             
             vehicle.update(dt)
-            
-            if self._track.check_checkpoint_crossing(
-                old_x, old_y, vehicle.x, vehicle.y, self._next_checkpoint
-            ):
-                self._next_checkpoint += 1
 
-                if self._next_checkpoint >= self._track.total_checkpoints:
-                    lap_info = self._lap_timer.complete_lap()
-                    self._next_checkpoint = 0
-                    self._track.reset_checkpoints()
-                    print(f"Lap {lap_info['lap_number']} completed: {self._lap_timer.format_time(lap_info['time'])}")
-                    if lap_info['is_best']:
-                        print("  *** NEW BEST LAP! ***")
-
+            # Handle collision FIRST (before checking checkpoints)
+            # This prevents false checkpoint detections when position is reset
+            collision_occurred = False
             if self._physics.handle_collision(vehicle, self._track):
                 self._collision_count += 1
                 if self._track.check_collision(vehicle.get_corners()):
                     vehicle.set_position(old_x, old_y)
+                    collision_occurred = True
+
+            # Only check checkpoints if no collision occurred (to avoid false detections)
+            if not collision_occurred:
+                if self._track.check_checkpoint_crossing(
+                    old_x, old_y, vehicle.x, vehicle.y, self._next_checkpoint
+                ):
+                    self._next_checkpoint += 1
+
+                # Check finish line only after all checkpoints are passed
+                if self._next_checkpoint >= self._track.total_checkpoints:
+                    if self._track.check_finish_line_crossing(old_x, old_y, vehicle.x, vehicle.y):
+                        lap_info = self._lap_timer.complete_lap()
+                        self._next_checkpoint = 0
+                        self._track.reset_checkpoints()
 
     def _render(self):
         self._renderer.clear(self._track.background_color)
