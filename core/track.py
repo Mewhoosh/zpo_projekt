@@ -206,3 +206,30 @@ class Track:
                     return True
         return False
 
+    def cast_ray(self, start_x, start_y, angle_deg, max_distance=300):
+        """
+        Rzuca promień z punktu startowego pod danym kątem.
+        Sprawdza punkt po punkcie czy trafił w ścianę.
+        Zwraca odległość do najbliższej ściany (lub max_distance jeśli nie trafił).
+        """
+        import math
+        rad = math.radians(angle_deg)
+        dx = math.cos(rad)
+        dy = math.sin(rad)
+
+        step = 5
+        distance = 0
+
+        while distance < max_distance:
+            check_x = start_x + dx * distance
+            check_y = start_y + dy * distance
+
+            for wall in self._walls:
+                if (wall['x'] <= check_x <= wall['x'] + wall['width'] and
+                    wall['y'] <= check_y <= wall['y'] + wall['height']):
+                    return distance
+
+            distance += step
+
+        return max_distance
+

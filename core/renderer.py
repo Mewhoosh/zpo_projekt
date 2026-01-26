@@ -44,6 +44,19 @@ class Renderer:
         # Draw front indicator (red line on front)
         pygame.draw.line(self._screen, (255, 0, 0), corners[1], corners[2], 3)
 
+    def draw_raycasts(self, vehicle, endpoints):
+        """Rysuje raycasty jako linie od pojazdu do punktów końcowych."""
+        for end_x, end_y in endpoints:
+            pygame.draw.line(
+                self._screen,
+                (0, 255, 0),  # Zielony kolor
+                (int(vehicle.x), int(vehicle.y)),
+                (int(end_x), int(end_y)),
+                1
+            )
+            # Czerwona kropka na końcu promienia
+            pygame.draw.circle(self._screen, (255, 0, 0), (int(end_x), int(end_y)), 3)
+
     def draw_text(self, text, x, y, color=(255, 255, 255)):
         surface = self._font.render(text, True, color)
         self._screen.blit(surface, (x, y))

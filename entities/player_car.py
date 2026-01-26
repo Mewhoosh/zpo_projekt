@@ -15,9 +15,11 @@ class PlayerCar(Vehicle):
             self.accelerate(self.ACCELERATION)
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
             self.accelerate(-self.ACCELERATION * 0.5)
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            if abs(self.speed) > 0.5:
-                self.rotate(-self.ROTATION_SPEED)
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            if abs(self.speed) > 0.5:
-                self.rotate(self.ROTATION_SPEED)
+
+        # Skręcanie - odwrócone przy cofaniu (jak w prawdziwym aucie)
+        if abs(self.speed) > 0.5:
+            direction = 1 if self.speed > 0 else -1
+            if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                self.rotate(-self.ROTATION_SPEED * direction)
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                self.rotate(self.ROTATION_SPEED * direction)

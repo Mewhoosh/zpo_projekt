@@ -53,6 +53,7 @@ class GameEngine:
         self._next_checkpoint = 0
         self._collision_count = 0
         self._show_checkpoints = False  # Toggle with C key
+        self._show_raycasts = False  # Toggle with V key
 
         # Start race
         self._lap_timer.start_race()
@@ -89,6 +90,8 @@ class GameEngine:
                     self._reset_race()
                 elif event.key == pygame.K_c:
                     self._show_checkpoints = not self._show_checkpoints
+                elif event.key == pygame.K_v:
+                    self._show_raycasts = not self._show_raycasts
 
     def _update(self, dt):
         self._lap_timer.update()
@@ -128,7 +131,12 @@ class GameEngine:
 
         for vehicle in self._vehicles:
             self._renderer.draw_vehicle(vehicle)
-        
+
+            # Draw raycasts if enabled
+            if self._show_raycasts:
+                _, endpoints = vehicle.get_raycasts(self._track)
+                self._renderer.draw_raycasts(vehicle, endpoints)
+
         # Draw statistics
         y_offset = 10
         line_height = 35

@@ -94,7 +94,32 @@ class Vehicle(ABC):
             rotated.append((self.__x + rx, self.__y + ry))
         
         return rotated
-    
+
+    def get_raycast_angles(self):
+        """Zwraca kąty raycastów względem kierunku jazdy (7 promieni)."""
+        return [-90, -60, -30, 0, 30, 60, 90]
+
+    def get_raycasts(self, track, max_distance=300):
+        """
+        Wykonuje raycasty i zwraca listę odległości do ścian.
+        Zwraca też punkty końcowe do wizualizacji.
+        """
+        ray_angles = self.get_raycast_angles()
+        distances = []
+        endpoints = []
+
+        for relative_angle in ray_angles:
+            absolute_angle = self.__angle + relative_angle
+            distance = track.cast_ray(self.__x, self.__y, absolute_angle, max_distance)
+            distances.append(distance)
+
+            rad = math.radians(absolute_angle)
+            end_x = self.__x + math.cos(rad) * distance
+            end_y = self.__y + math.sin(rad) * distance
+            endpoints.append((end_x, end_y))
+
+        return distances, endpoints
+
     @abstractmethod
     def handle_input(self):
         pass
