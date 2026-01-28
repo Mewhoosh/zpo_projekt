@@ -10,64 +10,62 @@ from entities.ai_car import AICar
 
 class RacingEnv(gym.Env):
     """
-    Środowisko Gymnasium dla gry wyścigowej.
+    Gymnasium environment for racing game.
 
-    Obserwacje (9 wartości):
-        - 7 raycastów (odległości do ścian, znormalizowane 0-1)
-        - prędkość (znormalizowana -1 do 1)
-        - odległość do następnego checkpointu (znormalizowana 0-1)
+    Observations (9 values):
+        - 7 raycasts (distances to walls, normalized 0-1)
+        - speed (normalized -1 to 1)
+        - distance to next checkpoint (normalized 0-1)
 
-    Akcje (8 dyskretnych):
-        0: Nic
-        1: Gaz
-        2: Gaz + Lewo
-        3: Gaz + Prawo
-        4: Hamulec
-        5: Cofanie
-        6: Cofanie + Lewo
-        7: Cofanie + Prawo
+    Actions (5 discrete):
+        0: Nothing
+        1: Gas
+        2: Gas + Left
+        3: Gas + Right
+        4: Reverse
 
-    Nagrody:
-        +100: Przejechanie checkpointu
-        +500: Ukończenie okrążenia
-        -50: Kolizja ze ścianą
-        -0.1: Kara za każdy krok (żeby się spieszył)
-        +0.1 * prędkość: Nagroda za jazdę
+    Rewards:
+        +200: Checkpoint crossed
+        +1000 + time_bonus: Lap completed
+        -5: Wall collision
+        +progress: Getting closer to checkpoint
     """
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 60}
 
-    def __init__(self, track_file="tracks/test.png", render_mode=None, max_steps=2000):
+    def __init__(self, track_file="tracks/test.png", render_mode=None, max_steps=800):
         super().__init__()
 
         self.render_mode = render_mode
         self.max_steps = max_steps
         self._current_step = 0
+        self._steps_without_progress = 0
+        self._max_steps_without_progress = 300
 
-        # Ładowanie toru
+        # Load track
         loader = TrackLoader()
         track_data = loader.load_from_png(track_file)
         self._track = Track(track_data=track_data)
 
-        # Fizyka
+        # Physics
         self._physics = PhysicsEngine()
 
-        # Pojazd AI
+        # AI vehicle
         start_x, start_y = self._track.start_position
         self._car = AICar(start_x, start_y)
         self._car.set_angle(90)
 
-        # Śledzenie checkpointów
+        # Checkpoint tracking
         self._next_checkpoint = 0
         self._laps_completed = 0
 
-        # Stałe dla normalizacji
-        self._max_raycast_distance = 300
+        # Raycast range (longer = sees walls further away)
+        self._max_raycast_distance = 500
 
-        # Przestrzeń akcji: 8 dyskretnych akcji
-        self.action_space = spaces.Discrete(8)
+        # Action space: 5 discrete
+        self.action_space = spaces.Discrete(5)
 
-        # Przestrzeń obserwacji: 7 raycastów + prędkość + odległość do checkpointu
+        # Observation space: 7 raycasts + speed + checkpoint distance
         self.observation_space = spaces.Box(
             low=-1.0,
             high=1.0,
@@ -75,21 +73,21 @@ class RacingEnv(gym.Env):
             dtype=np.float32
         )
 
-        # Pygame dla renderowania (inicjalizowane leniwie)
+        # Pygame for rendering (lazy init)
         self._screen = None
         self._clock = None
         self._renderer = None
 
     def _get_observation(self):
-        """Zwraca znormalizowane obserwacje."""
-        # Raycasty (7 wartości, znormalizowane 0-1)
+        """Returns normalized observations."""
+        # Raycasts (7 values, normalized 0-1)
         distances, _ = self._car.get_raycasts(self._track, self._max_raycast_distance)
         normalized_rays = [d / self._max_raycast_distance for d in distances]
 
-        # Prędkość (znormalizowana -1 do 1)
+        # Speed (normalized -1 to 1)
         normalized_speed = self._car.speed / self._car.MAX_SPEED
 
-        # Odległość do następnego checkpointu (uproszczone - używamy pozycji)
+        # Distance to next checkpoint
         if self._next_checkpoint < len(self._track.checkpoints):
             cp = self._track.checkpoints[self._next_checkpoint]
             cp_x = (cp['x1'] + cp['x2']) / 2
@@ -130,6 +128,7 @@ class RacingEnv(gym.Env):
 
         # Reset kroków
         self._current_step = 0
+        self._steps_without_progress = 0
 
         return self._get_observation(), self._get_info()
 
@@ -138,56 +137,94 @@ class RacingEnv(gym.Env):
         Wykonuje jeden krok symulacji.
 
         Args:
-            action: Akcja do wykonania (0-4)
+            action: Akcja do wykonania (0-7)
 
         Returns:
             observation: Nowe obserwacje
             reward: Nagroda za ten krok
             terminated: Czy epizod się skończył (ukończono okrążenie)
-            truncated: Czy epizod został przerwany (max kroków, kolizja)
+            truncated: Czy epizod został przerwany (max kroków, brak postępu)
             info: Dodatkowe informacje
         """
         self._current_step += 1
+        self._steps_without_progress += 1
 
-        # Zapisz starą pozycję
+        # Zapisz starą pozycję i odległość do checkpointu
         old_x, old_y = self._car.x, self._car.y
+        old_dist_to_cp = self._get_distance_to_checkpoint()
 
         # Wykonaj akcję
         self._car.set_action(action)
         self._car.update(1/60)  # dt = 1/60
 
-        # Inicjalizuj nagrodę
-        reward = -0.1  # Kara za czas
-        reward += 0.1 * abs(self._car.speed)  # Nagroda za prędkość
+        # Nowa odległość do checkpointu
+        new_dist_to_cp = self._get_distance_to_checkpoint()
+
+        # Oblicz przebyty dystans
+        distance_moved = np.sqrt((self._car.x - old_x)**2 + (self._car.y - old_y)**2)
+
+        # === REWARD SYSTEM ===
+        reward = 0.0
+        had_collision = False
+
+        # Check collision first
+        if self._physics.handle_collision(self._car, self._track):
+            reward -= 5
+            had_collision = True
+
+        # Reward for getting closer to checkpoint
+        if old_dist_to_cp is not None and new_dist_to_cp is not None:
+            progress = old_dist_to_cp - new_dist_to_cp
+            reward += progress * 1.0
+
+        # Reward for driving forward
+        if self._car.speed > 0.5:
+            reward += 0.05
+
+        # Penalty for reversing without reason
+        if action == 4 and not had_collision:
+            reward -= 0.1
 
         terminated = False
         truncated = False
 
-        # Sprawdź kolizję
-        if self._physics.handle_collision(self._car, self._track):
-            reward -= 50  # Kara za kolizję
-
-        # Sprawdź checkpoint
+        # Check checkpoint
         if self._track.check_checkpoint_crossing(
             old_x, old_y, self._car.x, self._car.y, self._next_checkpoint
         ):
-            reward += 100  # Nagroda za checkpoint
+            reward += 200  # Checkpoint reward
             self._next_checkpoint += 1
+            self._steps_without_progress = 0
 
-        # Sprawdź linię mety
+        # Check finish line
         if self._next_checkpoint >= self._track.total_checkpoints:
             if self._track.check_finish_line_crossing(old_x, old_y, self._car.x, self._car.y):
-                reward += 500  # Nagroda za okrążenie
+                # Time bonus: faster lap = more points
+                time_bonus = 500 * (self.max_steps - self._current_step) / self.max_steps
+                reward += 1000 + time_bonus
                 self._laps_completed += 1
                 self._next_checkpoint = 0
                 self._track.reset_checkpoints()
-                terminated = True  # Kończymy epizod po okrążeniu
+                self._steps_without_progress = 0
 
-        # Sprawdź limit kroków
+        # Check no-progress limit
+        if self._steps_without_progress >= self._max_steps_without_progress:
+            truncated = True
+
+        # Check max steps
         if self._current_step >= self.max_steps:
             truncated = True
 
         return self._get_observation(), reward, terminated, truncated, self._get_info()
+
+    def _get_distance_to_checkpoint(self):
+        """Zwraca odległość do następnego checkpointu."""
+        if self._next_checkpoint < len(self._track.checkpoints):
+            cp = self._track.checkpoints[self._next_checkpoint]
+            cp_x = (cp['x1'] + cp['x2']) / 2
+            cp_y = (cp['y1'] + cp['y2']) / 2
+            return np.sqrt((self._car.x - cp_x)**2 + (self._car.y - cp_y)**2)
+        return None
 
     def render(self):
         """Renderuje aktualny stan gry."""

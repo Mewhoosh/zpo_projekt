@@ -1,0 +1,18 @@
+Wersja: v1
+Algorytm: PPO
+Akcje: 4 (nic, gaz, gaz+lewo, gaz+prawo)
+Srodowiska: 4
+Max_steps: 1000
+Total_timesteps: 100000
+
+Rewards:
+- checkpoint: +100
+- okrazenie: +500
+- kolizja: -5
+- zblizanie do cp: +progress * 1.0
+- predkosc > 0.5: +0.05
+
+Wyniki:
+- najlepszy: 1 checkpoint, 859 reward
+- problem: brak cofania, agent blokuje sie w scianach
+

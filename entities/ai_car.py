@@ -2,7 +2,7 @@ from entities.vehicle import Vehicle
 
 
 class AICar(Vehicle):
-    """Pojazd sterowany przez AI - nie czyta inputu z klawiatury."""
+    """Pojazd sterowany przez AI."""
 
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -12,17 +12,15 @@ class AICar(Vehicle):
     def set_action(self, action):
         """
         Ustawia akcję do wykonania.
-        Akcje:
+
+        Akcje (0-4):
             0: Nic
             1: Gaz
             2: Gaz + Lewo
             3: Gaz + Prawo
-            4: Hamulec
-            5: Cofanie
-            6: Cofanie + Lewo
-            7: Cofanie + Prawo
+            4: Cofanie
         """
-        self._current_action = action
+        self._current_action = int(action)
 
     def handle_input(self):
         """Wykonuje akcję ustawioną przez AI."""
@@ -33,24 +31,10 @@ class AICar(Vehicle):
         elif action == 2:  # Gaz + Lewo
             self.accelerate(self.ACCELERATION)
             if abs(self.speed) > 0.5:
-                direction = 1 if self.speed > 0 else -1
-                self.rotate(-self.ROTATION_SPEED * direction)
+                self.rotate(-self.ROTATION_SPEED)
         elif action == 3:  # Gaz + Prawo
             self.accelerate(self.ACCELERATION)
             if abs(self.speed) > 0.5:
-                direction = 1 if self.speed > 0 else -1
-                self.rotate(self.ROTATION_SPEED * direction)
-        elif action == 4:  # Hamulec
-            self.accelerate(-self.ACCELERATION * 0.5)
-        elif action == 5:  # Cofanie
-            self.accelerate(-self.ACCELERATION * 0.5)
-        elif action == 6:  # Cofanie + Lewo
-            self.accelerate(-self.ACCELERATION * 0.5)
-            if abs(self.speed) > 0.5:
-                direction = 1 if self.speed > 0 else -1
-                self.rotate(-self.ROTATION_SPEED * direction)
-        elif action == 7:  # Cofanie + Prawo
-            self.accelerate(-self.ACCELERATION * 0.5)
-            if abs(self.speed) > 0.5:
-                direction = 1 if self.speed > 0 else -1
-                self.rotate(self.ROTATION_SPEED * direction)
+                self.rotate(self.ROTATION_SPEED)
+        elif action == 4:  # Cofanie
+            self.accelerate(-self.ACCELERATION)

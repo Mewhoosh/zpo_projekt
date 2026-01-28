@@ -1,0 +1,40 @@
+Wersja: v4
+Algorytm: PPO
+Akcje: 5 (nic, gaz, gaz+lewo, gaz+prawo, cofanie)
+Srodowiska: 8 (SubprocVecEnv)
+Max_steps: 800 (zmniejszone z 1000)
+Max_steps_without_progress: 300 (zmniejszone z 400)
+Total_timesteps: 100000
+
+Zmiany vs v3:
+- Zasięg raycastów: 500 (było 300)
+- Reward za checkpoint: +200 (było +150)
+- Reward za okrążenie: +1000 + bonus czasowy
+- Bonus czasowy: do +500 za szybkie okrążenie
+- Max_steps: 800 (było 1000)
+- Max_steps_without_progress: 300 (było 400)
+- ent_coef: 0.005 (było 0.01)
+
+Rewards:
+- checkpoint: +200
+- okrążenie: +1000 + bonus czasowy
+- bonus czasowy: 500 * (max_steps - current_step) / max_steps
+- kolizja: -5
+- zbliżanie do checkpointu: +distance_diff * 1.0
+- prędkość > 0.5: +0.05
+- cofanie bez kolizji: -0.1
+
+Parametry PPO:
+- learning_rate: 0.0003
+- n_steps: 2048
+- batch_size: 64
+- n_epochs: 10
+- gamma: 0.99
+- gae_lambda: 0.95
+- clip_range: 0.2
+- ent_coef: 0.005
+
+Using cpu device
+Rozpoczynam trening PPO na 100000 kroków...
+Środowisk równolegle: 8 (SubprocVecEnv)
+Modele będą zapisywane do: models/v4/

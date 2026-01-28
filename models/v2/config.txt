@@ -1,0 +1,36 @@
+Wersja: v2
+Algorytm: PPO
+Akcje: 5 (nic, gaz, gaz+lewo, gaz+prawo, cofanie)
+Srodowiska: 8 (SubprocVecEnv)
+Max_steps: 500
+Max_steps_without_progress: 300
+Total_timesteps: 100000
+Czas treningu: ~15 min
+
+Rewards:
+- checkpoint: +100
+- okrazenie: +500
+- kolizja: -5
+- zblizanie do cp: +progress * 1.0
+- predkosc > 0.5: +0.05
+
+Wyniki koncowe:
+- ep_rew_mean: 689
+- max reward: 1177.5
+- mean checkpointy: 1.46
+- max checkpointy: 2
+- ep_len_mean: 458
+
+Progres:
+- 8k: -265 rew, 0 cp
+- 32k: -55 rew, 0 cp
+- 65k: 207 rew, 0.2 cp
+- 98k: 655 rew, 0.96 cp
+- 114k: 814 rew, 1.46 cp
+
+Zmiany vs v1:
+- dodano cofanie
+- SubprocVecEnv (8x szybciej)
+- Monitor + VecMonitor
+- log_freq=8192
+
