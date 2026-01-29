@@ -15,20 +15,16 @@ class TrackLoader:
     - Green (0,255,0): Checkpoint 0 (first)
     - Blue (0,0,255): Checkpoint 1 (second)
     - Red (255,0,0): Checkpoint 2 (third)
-    - Cyan (0,255,255): Checkpoint 3 (fourth) - optional
-    - Magenta (255,0,255): Checkpoint 4 (fifth) - optional
     """
 
     def __init__(self):
         self.wall_color = (0, 0, 0)
         self.road_color = (255, 255, 255)
-        # Checkpoint colors in order
+        # Checkpoint colors in order: Green -> Blue -> Red
         self.checkpoint_colors = [
             (0, 255, 0),    # Green - Checkpoint 0
             (0, 0, 255),    # Blue - Checkpoint 1
             (255, 0, 0),    # Red - Checkpoint 2
-            (0, 255, 255),  # Cyan - Checkpoint 3
-            (255, 0, 255),  # Magenta - Checkpoint 4
         ]
         self.finish_line_color = (255, 255, 0)  # Yellow
 
@@ -164,7 +160,7 @@ class TrackLoader:
         }
 
     def _extract_checkpoints(self, pixels, width, height, start_position):
-        """Extract checkpoint lines from colored pixels (green, blue, red, cyan, magenta)."""
+        """Extract checkpoint lines from colored pixels (green, blue, red)."""
         # Dictionary to store checkpoints by color
         checkpoints_by_color = {}
 
@@ -182,21 +178,30 @@ class TrackLoader:
 
                     r, g, b = pixels[y, x]
 
-                    # Check if pixel matches checkpoint color
-                    # Tolerance 80 because Paint doesn't always save exact RGB values
-                    tolerance = 80
-                    if (abs(r - target_r) < tolerance and
-                        abs(g - target_g) < tolerance and
-                        abs(b - target_b) < tolerance):
+                    # Check if pixel matches checkpoint color with specific logic for each color
+                    is_match = self._is_color_match(r, g, b, target_r, target_g, target_b)
 
-                        # Skip if it's the finish line (yellow)
-                        if abs(r - 255) < 30 and abs(g - 255) < 30 and b < 50:
-                            continue
-
+                    if is_match:
                         line = self._trace_checkpoint_line(pixels, visited, x, y, width, height, color)
                         if line and len(line) > 3:
-                            x1, y1 = line[0]
-                            x2, y2 = line[-1]
+                            # Find extreme points of the line
+                            all_x = [p[0] for p in line]
+                            all_y = [p[1] for p in line]
+                            min_x, max_x = min(all_x), max(all_x)
+                            min_y, max_y = min(all_y), max(all_y)
+
+                            # Determine if line is more horizontal or vertical
+                            if max_y - min_y > max_x - min_x:
+                                # Vertical line
+                                avg_x = sum(all_x) // len(all_x)
+                                x1, y1 = avg_x, min_y
+                                x2, y2 = avg_x, max_y
+                            else:
+                                # Horizontal line
+                                avg_y = sum(all_y) // len(all_y)
+                                x1, y1 = min_x, avg_y
+                                x2, y2 = max_x, avg_y
+
                             checkpoint_lines.append({
                                 'x1': x1, 'y1': y1,
                                 'x2': x2, 'y2': y2,
@@ -315,10 +320,8 @@ class TrackLoader:
                 continue
 
             r, g, b = pixels[y, x]
-            tolerance = 80
-            if not (abs(r - target_r) < tolerance and
-                    abs(g - target_g) < tolerance and
-                    abs(b - target_b) < tolerance):
+            # Use the same color matching logic
+            if not self._is_color_match(r, g, b, target_r, target_g, target_b):
                 continue
 
             local_visited.add((x, y))
@@ -330,6 +333,42 @@ class TrackLoader:
                 to_visit.append((x + dx, y + dy))
 
         return line
+
+    def _is_color_match(self, r, g, b, target_r, target_g, target_b):
+        """
+        Check if pixel color matches target color.
+        Uses specific logic for each checkpoint color to avoid conflicts.
+        """
+        tolerance = 60
+
+        # Skip black pixels (walls)
+        if r < 50 and g < 50 and b < 50:
+            return False
+
+        # Skip white pixels (road)
+        if r > 200 and g > 200 and b > 200:
+            return False
+
+        # Skip yellow pixels (finish line)
+        if r > 200 and g > 200 and b < 80:
+            return False
+
+        # Green checkpoint (0, 255, 0): G dominates, high G, low R and B
+        if target_r == 0 and target_g == 255 and target_b == 0:
+            return g > 150 and g > r + 50 and g > b + 50
+
+        # Blue checkpoint (0, 0, 255): B dominates, high B, low R and G
+        if target_r == 0 and target_g == 0 and target_b == 255:
+            return b > 150 and b > r + 50 and b > g + 50
+
+        # Red checkpoint (255, 0, 0): R dominates, high R, low G and B
+        if target_r == 255 and target_g == 0 and target_b == 0:
+            return r > 150 and r > g + 50 and r > b + 50
+
+        # Fallback: general tolerance matching
+        return (abs(r - target_r) < tolerance and
+                abs(g - target_g) < tolerance and
+                abs(b - target_b) < tolerance)
 
 
 
