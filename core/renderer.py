@@ -2,15 +2,18 @@ import pygame
 
 
 class Renderer:
-    
+    """Handles all rendering operations."""
+
     def __init__(self, screen):
         self._screen = screen
         self._font = pygame.font.Font(None, 36)
     
     def clear(self, color):
+        """Fill screen with background color."""
         self._screen.fill(color)
     
     def draw_track(self, track, show_checkpoints=False):
+        """Draw track walls and checkpoints."""
         for wall in track.walls:
             pygame.draw.rect(
                 self._screen, 
@@ -38,26 +41,28 @@ class Renderer:
                 )
 
     def draw_vehicle(self, vehicle):
+        """Draw vehicle with front indicator."""
         corners = vehicle.get_corners()
         # Draw main body
         pygame.draw.polygon(self._screen, vehicle.color, corners)
-        # Draw front indicator (red line on front)
+        # Draw front indicator (red line)
         pygame.draw.line(self._screen, (255, 0, 0), corners[1], corners[2], 3)
 
     def draw_raycasts(self, vehicle, endpoints):
-        """Rysuje raycasty jako linie od pojazdu do punktów końcowych."""
+        """Draw raycasts as lines from vehicle to endpoints."""
         for end_x, end_y in endpoints:
             pygame.draw.line(
                 self._screen,
-                (0, 255, 0),  # Zielony kolor
+                (0, 255, 0),  # Green color
                 (int(vehicle.x), int(vehicle.y)),
                 (int(end_x), int(end_y)),
                 1
             )
-            # Czerwona kropka na końcu promienia
+            # Red dot at ray end
             pygame.draw.circle(self._screen, (255, 0, 0), (int(end_x), int(end_y)), 3)
 
     def draw_text(self, text, x, y, color=(255, 255, 255)):
+        """Draw text on screen."""
         surface = self._font.render(text, True, color)
         self._screen.blit(surface, (x, y))
     

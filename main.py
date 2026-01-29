@@ -1,3 +1,7 @@
+"""
+Manual play mode - control vehicle with WASD keys.
+Usage: python main.py
+"""
 from core.game_engine import GameEngine
 
 

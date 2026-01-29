@@ -8,7 +8,8 @@ from core.lap_timer import LapTimer
 
 
 class GameEngine:
-    
+    """Main game loop and logic controller."""
+
     def __init__(self, width=1200, height=800, track_file=None):
         """
         Initialize game engine.
@@ -59,6 +60,7 @@ class GameEngine:
         self._lap_timer.start_race()
 
     def run(self):
+        """Main game loop."""
         while self._running:
             dt = self._clock.tick(self._fps) / 1000.0
             
@@ -69,6 +71,7 @@ class GameEngine:
         pygame.quit()
     
     def _reset_race(self):
+        """Reset race to initial state."""
         start_x, start_y = self._track.start_position
         self._player.set_position(start_x, start_y)
         self._player.set_angle(0)

@@ -102,7 +102,7 @@ class RacingEnv(gym.Env):
         return obs
 
     def _get_info(self):
-        """Zwraca dodatkowe informacje."""
+        """Return additional info."""
         return {
             "checkpoint": self._next_checkpoint,
             "total_checkpoints": self._track.total_checkpoints,
@@ -112,21 +112,21 @@ class RacingEnv(gym.Env):
         }
 
     def reset(self, seed=None, options=None):
-        """Resetuje środowisko do stanu początkowego."""
+        """Reset environment to initial state."""
         super().reset(seed=seed)
 
-        # Reset pozycji
+        # Reset position
         start_x, start_y = self._track.start_position
         self._car.set_position(start_x, start_y)
         self._car.set_angle(90)
-        self._car.accelerate(-self._car.speed)  # Zeruj prędkość
+        self._car.accelerate(-self._car.speed)  # Zero speed
 
-        # Reset checkpointów
+        # Reset checkpoints
         self._next_checkpoint = 0
         self._laps_completed = 0
         self._track.reset_checkpoints()
 
-        # Reset kroków
+        # Reset steps
         self._current_step = 0
         self._steps_without_progress = 0
 
@@ -134,33 +134,33 @@ class RacingEnv(gym.Env):
 
     def step(self, action):
         """
-        Wykonuje jeden krok symulacji.
+        Execute one simulation step.
 
         Args:
-            action: Akcja do wykonania (0-7)
+            action: Action to execute (0-4)
 
         Returns:
-            observation: Nowe obserwacje
-            reward: Nagroda za ten krok
-            terminated: Czy epizod się skończył (ukończono okrążenie)
-            truncated: Czy epizod został przerwany (max kroków, brak postępu)
-            info: Dodatkowe informacje
+            observation: New observations
+            reward: Reward for this step
+            terminated: Whether episode ended (lap completed)
+            truncated: Whether episode was interrupted (max steps, no progress)
+            info: Additional info
         """
         self._current_step += 1
         self._steps_without_progress += 1
 
-        # Zapisz starą pozycję i odległość do checkpointu
+        # Save old position and distance to checkpoint
         old_x, old_y = self._car.x, self._car.y
         old_dist_to_cp = self._get_distance_to_checkpoint()
 
-        # Wykonaj akcję
+        # Execute action
         self._car.set_action(action)
         self._car.update(1/60)  # dt = 1/60
 
-        # Nowa odległość do checkpointu
+        # New distance to checkpoint
         new_dist_to_cp = self._get_distance_to_checkpoint()
 
-        # Oblicz przebyty dystans
+        # Calculate distance moved
         distance_moved = np.sqrt((self._car.x - old_x)**2 + (self._car.y - old_y)**2)
 
         # === REWARD SYSTEM ===
@@ -218,7 +218,7 @@ class RacingEnv(gym.Env):
         return self._get_observation(), reward, terminated, truncated, self._get_info()
 
     def _get_distance_to_checkpoint(self):
-        """Zwraca odległość do następnego checkpointu."""
+        """Return distance to next checkpoint."""
         if self._next_checkpoint < len(self._track.checkpoints):
             cp = self._track.checkpoints[self._next_checkpoint]
             cp_x = (cp['x1'] + cp['x2']) / 2
@@ -227,11 +227,11 @@ class RacingEnv(gym.Env):
         return None
 
     def render(self):
-        """Renderuje aktualny stan gry."""
+        """Render current game state."""
         if self.render_mode is None:
             return
 
-        # Inicjalizacja pygame przy pierwszym renderowaniu
+        # Initialize pygame on first render
         if self._screen is None:
             import pygame
             from core.renderer import Renderer
@@ -244,18 +244,18 @@ class RacingEnv(gym.Env):
 
         import pygame
 
-        # Obsługa zdarzeń (żeby okno nie zamarzło)
+        # Handle events (so window doesn't freeze)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.close()
                 return
 
-        # Renderowanie
+        # Rendering
         self._renderer.clear(self._track.background_color)
         self._renderer.draw_track(self._track, show_checkpoints=True)
         self._renderer.draw_vehicle(self._car)
 
-        # Rysuj raycasty
+        # Draw raycasts
         _, endpoints = self._car.get_raycasts(self._track)
         self._renderer.draw_raycasts(self._car, endpoints)
 
@@ -268,7 +268,7 @@ class RacingEnv(gym.Env):
         self._clock.tick(60)
 
     def close(self):
-        """Zamyka środowisko."""
+        """Close environment."""
         if self._screen is not None:
             import pygame
             pygame.quit()

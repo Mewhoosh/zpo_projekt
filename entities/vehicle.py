@@ -3,6 +3,8 @@ import math
 
 
 class Vehicle(ABC):
+    """Base class for all vehicles (player and AI)."""
+
     MAX_SPEED = 10.0
     ACCELERATION = 0.5
     FRICTION = 0.95
@@ -96,13 +98,13 @@ class Vehicle(ABC):
         return rotated
 
     def get_raycast_angles(self):
-        """Zwraca kąty raycastów względem kierunku jazdy (7 promieni)."""
+        """Return raycast angles relative to vehicle direction (7 rays)."""
         return [-90, -60, -30, 0, 30, 60, 90]
 
     def get_raycasts(self, track, max_distance=300):
         """
-        Wykonuje raycasty i zwraca listę odległości do ścian.
-        Zwraca też punkty końcowe do wizualizacji.
+        Perform raycasts and return distances to walls.
+        Also returns endpoints for visualization.
         """
         ray_angles = self.get_raycast_angles()
         distances = []

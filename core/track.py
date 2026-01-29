@@ -32,9 +32,10 @@ class Track:
         self._checkpoint_color = (255, 215, 0)
 
     def _setup_basic_track(self):
+        """Create basic rectangular track with outer walls and one inner obstacle."""
         wall_thickness = 20
 
-        # outer walls
+        # Outer walls
         self._walls.append({
             'x': 0, 'y': 0,
             'width': self._width, 'height': wall_thickness
@@ -52,13 +53,14 @@ class Track:
             'width': wall_thickness, 'height': self._height
         })
 
-        # inner obstacle
+        # Inner obstacle
         self._walls.append({
             'x': self._width // 2 - 100, 'y': self._height // 2 - 50,
             'width': 200, 'height': 100
         })
 
     def _setup_checkpoints(self):
+        """Set up default checkpoints for basic track."""
         margin = 50
         # Right side checkpoint
         self._checkpoints.append({
@@ -93,6 +95,7 @@ class Track:
         })
 
     def check_checkpoint_crossing(self, prev_x, prev_y, curr_x, curr_y, next_checkpoint_id):
+        """Check if vehicle crossed the next checkpoint."""
         if next_checkpoint_id >= len(self._checkpoints):
             return False
 
@@ -163,6 +166,7 @@ class Track:
         return lines_intersect(prev_x, prev_y, curr_x, curr_y, fl_x1, fl_y1, fl_x2, fl_y2)
 
     def reset_checkpoints(self):
+        """Reset all checkpoints to not passed."""
         for checkpoint in self._checkpoints:
             checkpoint['passed'] = False
 
@@ -199,6 +203,7 @@ class Track:
         return self._checkpoint_color
 
     def check_collision(self, corners):
+        """Check if any corner collides with walls."""
         for corner_x, corner_y in corners:
             for wall in self._walls:
                 if (wall['x'] <= corner_x <= wall['x'] + wall['width'] and
@@ -208,9 +213,8 @@ class Track:
 
     def cast_ray(self, start_x, start_y, angle_deg, max_distance=300):
         """
-        Rzuca promień z punktu startowego pod danym kątem.
-        Sprawdza punkt po punkcie czy trafił w ścianę.
-        Zwraca odległość do najbliższej ściany (lub max_distance jeśli nie trafił).
+        Cast a ray from start position at given angle.
+        Returns distance to nearest wall (or max_distance if no hit).
         """
         import math
         rad = math.radians(angle_deg)

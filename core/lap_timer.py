@@ -2,6 +2,7 @@ import time
 
 
 class LapTimer:
+    """Tracks lap times and race progress."""
 
     def __init__(self):
         self._current_lap = 1
@@ -14,6 +15,7 @@ class LapTimer:
         self._lap_times_history = []
 
     def start_race(self):
+        """Start race timer."""
         self._lap_start_time = time.time()
         self._race_started = True
         self._current_lap = 1
@@ -21,11 +23,13 @@ class LapTimer:
         self._lap_times_history = []
 
     def update(self):
+        """Update current lap time."""
         if self._race_started and self._lap_start_time:
             self._current_lap_time = time.time() - self._lap_start_time
             self._total_race_time += self._current_lap_time
 
     def complete_lap(self):
+        """Complete current lap and start new one."""
         if not self._race_started:
             return None
 
@@ -52,6 +56,7 @@ class LapTimer:
         return lap_info
 
     def reset(self):
+        """Reset all timer values."""
         self._current_lap = 1
         self._lap_start_time = None
         self._current_lap_time = 0.0
@@ -82,6 +87,7 @@ class LapTimer:
         return self._lap_times_history.copy()
 
     def format_time(self, seconds):
+        """Format time as MM:SS.mmm"""
         if seconds == 0 or seconds == float('inf'):
             return "--:--.---"
 
